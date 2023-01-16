@@ -20,7 +20,7 @@ How to run
 
 Run with following (available dataset: "cora", "citeseer", "pubmed")
 ```bash
-python3 train_full.py --dataset cora --gpu 0    # full graph
+python3 train_full.py --dataset cora --gpu 0    # full graph （node classification）
 ```
 
 Results:

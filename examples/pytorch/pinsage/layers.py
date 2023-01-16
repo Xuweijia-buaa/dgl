@@ -202,6 +202,12 @@ class SAGENet(nn.Module):
 
 class ItemToItemScorer(nn.Module):
     def __init__(self, full_graph, ntype):
+        '''
+        Parameters
+        ----------
+        full_graph: 完整的图
+        ntype： 只考虑item类型的节点。子图是只有item节点的同质图。
+        '''
         super().__init__()
 
         n_nodes = full_graph.num_nodes(ntype)  # g中item节点总数
@@ -215,12 +221,15 @@ class ItemToItemScorer(nn.Module):
 
     def forward(self, item_item_graph, h):
         """
-        item_item_graph : pos_graph/neg_graph. 只包含B个head->tail的子图。
-        h : 子图中，每个节点经过网络后的最终表示
+        item_item_graph : pos_graph/neg_graph. 只包含B个head->tail边的子图。但compact后，每个子图都含另一个子图的节点。共3B个节点
+        h :               heads, tails, neg_tails，3B个节点，每个节点经过网络后的最终表示。（3B,h）
+        -----
+        Returns:
+            pair_score ：该子图中的B个pair(head->tail),根据最终表示h间的向量内积,得到B对节点的节点间相似度（B,1）
         """
         with item_item_graph.local_scope():
-            item_item_graph.ndata["h"] = h
-            item_item_graph.apply_edges(fn.u_dot_v("h", "h", "s"))  # 用消息传递api,计算head和tail的向量内积。存于边上特征's'中
-            item_item_graph.apply_edges(self._add_bias)             # 该分数，加上一个可学习的bias,是该样本对的最终score (TODO：可以不用)
+            item_item_graph.ndata["h"] = h                          # 把h设成子图节点的特征。
+            item_item_graph.apply_edges(fn.u_dot_v("h", "h", "s"))  # 用消息传递api,计算边head和tail的特征's'（是head、tail的向量内积）
+            item_item_graph.apply_edges(self._add_bias)             # 该分数，加上一个可学习的bias,是每个pair的最终score (TODO：可以不用)
             pair_score = item_item_graph.edata["s"]
         return pair_score   # 该子图中，B个pair根据向量内积得到的相似度
