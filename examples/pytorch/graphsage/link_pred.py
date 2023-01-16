@@ -168,7 +168,7 @@ def compute_mrr(model, evaluator, node_emb, src, dst, neg_dst, device, batch_siz
        Args:
            node_emb:g中所有节点的最终表示。每个节点包含n阶所有邻居的信息。
            src:    测试边对应的源节点
-           dst:    测试边对应的目标节点。待预测边（g中应该没有？）
+           dst:    测试边对应的目标节点。待预测边（g中应该没有）
            neg_dst: 测试边对应的neg节点
     """
     rr = torch.zeros(src.shape[0])
@@ -191,7 +191,7 @@ def evaluate(device, graph, edge_split, model, batch_size):
     model.eval()
     evaluator = Evaluator(name='ogbl-citation2')
     with torch.no_grad():
-        node_emb = model.inference(graph, device, batch_size)   # g中所有节点的最终表示。每个节点包含n阶所有邻居的信息。
+        node_emb = model.inference(graph, device, batch_size)   # 先整图infer，得到g中所有节点的最终表示。每个节点包含n阶所有邻居的信息。
         results = []
         for split in ['valid', 'test']:
             src = edge_split[split]['source_node'].to(node_emb.device)           # 测试边。对应的源节点
@@ -214,6 +214,7 @@ def train(args, device, g, reverse_eids:list, seed_edges, model):
              正样本对对应的label是1，负样本对对应label是0
              样本得出的score，和对应label进行比较，计算二分类交叉熵loss。使得正样本score接近1，负样本对score接近0
          （可以用pair-wise-loss,最大化正负样本对score之差  loss=max(0, n-p+1) neg_score(B,1)-pos_score(B,1)+1  ）
+    没有val
 
     参考：https://docs.dgl.ai/en/latest/guide/minibatch-link.html#guide-minibatch-link-classification-sampler
     --------
