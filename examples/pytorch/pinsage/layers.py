@@ -93,7 +93,7 @@ class LinearProjector(nn.Module):
         '''
         ndata: 某个block中，对应节点的原始特征 ,是一个dict: {f_name:tensor[]}
         ----------
-        每个特征，
+        每个特征，映射成一个h后。直接相加
         '''
         projections = []
         for feature, data in ndata.items():              # block中。节点对应的每个特征。data:各节点上的特征取值,tensor.

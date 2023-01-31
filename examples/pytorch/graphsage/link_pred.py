@@ -25,7 +25,7 @@ def to_bidirected_with_reverse_mapping(g):
 
     c = g_simple.edata['count']           # 每条边的重复数目（在原图中）。
     num_edges = g.num_edges()
-    mapping_offset = torch.zeros(g_simple.num_edges() + 1, dtype=g_simple.idtype)
+    mapping_offset = torch.zeros(g_simple.num_edges() + 1, dtype=g_simple.idtype) # 有正反边的简单图，每个边的反向边
     mapping_offset[1:] = c.cumsum(0)
     idx = mapping.argsort()
     idx_uniq = idx[mapping_offset[:-1]]
