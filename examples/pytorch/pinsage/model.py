@@ -143,7 +143,7 @@ def train(dataset, args):
     for epoch_id in range(args.num_epochs):
         model.train()
         for batch_id in tqdm.trange(args.batches_per_epoch):
-            pos_graph, neg_graph, blocks = next(dataloader_it) # 已经从大图中复制了特征
+            pos_graph, neg_graph, blocks = next(dataloader_it) # 已经从大图中复制了特征。在cpu上进行
             # blocks 和 子图， copy to GPU
             for i in range(len(blocks)):
                 blocks[i] = blocks[i].to(device)               # 采样好后，才复制子图到gpu中。可以考虑用一个非默认流，异步复制每批次的子图到gpu

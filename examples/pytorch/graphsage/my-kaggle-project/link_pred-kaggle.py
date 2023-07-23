@@ -93,15 +93,14 @@ def train(args, device, g, reverse_eids,model):
         g,
         seed_edges,                                               # 每次迭代g中的B条边，作为fact，构建子图，和对应的邻居子图
         sampler,                                                  # 为输入的B条边，采样对应的负边。并为正负边涉及到的原始节点，采样对应的n阶邻居。
-        device=device, # 采样后的子图所在的device.如果使用uva,不变，还在cpu上。
+        device=device, # 采样后的子图所在的device. 不论是否使用uva,子图都放cuda上
         batch_size=512, shuffle=True,
         drop_last=False, num_workers=0,
         use_uva=use_uva)                                          # pin the graph and feature tensors into pinned memory.
-                                                                  # 采样得到的子图，放到主机pin mem上。不往gpu上复制了。
-                                                                  # 省去cpu->gpu的复制，但访存时带宽低。和model计算时，可能受限于对子图的访存速度。
+                                                                  # 大图，放到主机pin mem上。不往gpu上复制。但采样和构建子图的过程，在gpu上进行。速度快
 
                                                                   # 如果图在cpu, device在gpu, 且没用uva的话，  会设置use_alternate_streams是true
-                                                                  # 用另一个流，传输子图到gpu中。
+                                                                  # 每次先在cpu上采样得到子图，再复制到device上。尽管用另一个流，复制子图到gpu中。但还是慢
     opt = torch.optim.Adam(model.parameters(), lr=0.0005)
 
     # 缓存训练出来的结果
