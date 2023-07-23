@@ -48,7 +48,7 @@ class SAGE(nn.Module):
         self.mlp=mlp
 
     def forward(self, pair_graph, neg_pair_graph, blocks):
-
+        '''blocks:mixed模式下，放在主机pin_mem上，和model交互. device可访问'''
         # 原始特征映射
         feature_dict=blocks[0].srcdata   # 最后一阶邻居的特征。作为GNN的初始输入.
         x=self.project(feature_dict['id'])
@@ -91,7 +91,7 @@ class SAGE(nn.Module):
     def infer(self, g, device, batch_size):
         """
         Offline inference: 线下推断g中每个节点的最终表示。每个节点聚合了全部n阶邻居。（N,h）
-                           device:    model放gpu,上一阶表示作为输入放gpu。迭代的每B个节点和对应子图在gpu上做计算，结果缓存在cpu上
+                           device:    mxied时是cuda。model放gpu,上一阶表示作为输入放gpu。迭代的每B个节点和对应子图在gpu上做计算，结果缓存在cpu上
                            unseen节点：加入g后，也可以根据邻居信息聚合，infer对应表示。
         -------
         同node_classification.py:
@@ -100,21 +100,21 @@ class SAGE(nn.Module):
             参考：https://docs.dgl.ai/en/latest/guide/minibatch-inference.html
         """
         # 初始特征 (N，d)
-        feat = self.project(g.ndata['id'].to(device))
+        feat = self.project(g.ndata['id'].to(device))                     # g中所有节点的id,先放cuda上，并映射成（N,h）个embed
 
         # 采样器
         sampler = MultiLayerFullNeighborSampler(1,                          # 邻居采样器。每个节点聚合自己的全部邻居。只采一层，单纯聚合邻居。对应一个block
                                                 prefetch_node_feats=['id']) # 采样后的block,带id,来索引embedding
 
         dataloader = DataLoader(
-            g,
+            g,  # cpu上
             torch.arange(g.num_nodes()).int().to(g.device),                    # 迭代g中所有nodes。 所有nodes_id放gpu中，计算发生在gpu上
             sampler,
-            device=device,
+            device=device, # cuda.  cpu上采样到的子图，放哪里
             batch_size=batch_size, shuffle=False, drop_last=False,
             num_workers=0)
         buffer_device = torch.device('cpu')
-        pin_memory = (buffer_device != device)
+        pin_memory = (buffer_device != device)  # True
 
         # 分层，计算所有节点的最终表示
         for l, layer in enumerate(self.layers):          # 第i层, 得到所有节点的该阶表示. 下一阶节点的计算，依赖所有节点的上一层表示

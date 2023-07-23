@@ -139,23 +139,24 @@ class WeightedSAGEConv(nn.Module):
         g: 一个block。只包含本层节点和下一阶邻居。 邻居节点指向seeds.  构建block时，源节点包含dst节点。
         h: 本层block的每个节点,通过上一层得到的向量
         weights:该block中，邻居节点到目标节点的权重。代表邻居采样时，该邻居节点的重要性. 是取值，tensor(|E|,1)
+        返回：本次block的目标节点，对应的新的表示z (B,h)
         """
         h_src, h_dst = h       # h_src:该block中源节点的current embedding。
                                # h_dst:该block中目标节点的current embedding。包含在h_src中
         with g.local_scope():
             # 源节点hv本身做变换：
-            # h_v=Relu(Q*h_v+q)  仍是h维。相当于map,作为源节点的特征'n'
+            # h_v=Relu(Q*h_v+q)  仍是h维。相当于map,设为源节点的特征'n'
             g.srcdata["n"] = self.act(self.Q(self.dropout(h_src)))
 
             # 为目标节点，加权聚合邻居节点（按邻居权重）. 用dgl中内置的消息传递api,更新节点特征
             # h_u= sum(w*h_v)。    相当于每个dst节点，加权reduce
             g.edata["w"] = weights.float()            # 邻居权重，作为边特征
-            g.update_all(fn.u_mul_e("n", "w", "m"),   # 每条边的源节点中特征'n'(含dst节点), 乘上对应边权重'w',产生消息“m”(在该边上，类似边特征).
-                         fn.sum("m", "n"))            # 目标节点的特征'n',是加权聚合所有邻居的h_v: h_u= sum(w*h_v)  （reduce:每个dst节点，聚合所有入边消息m）
-            n = g.dstdata["n"]                        # 目标节点的临时新表示，对应文中n_u  [B,h]
+            g.update_all(fn.u_mul_e("n", "w", "m"),   # 每条边的源节点中特征'n'(含dst节点), 乘上对应边权重'w',产生消息“m”(在该边上，作为新的边特征).
+                         fn.sum("m", "n"))            # 目标节点的特征'n',更新为加权聚合所有邻居的h_v: h_u= sum(w*h_v)  （每个dst节点，聚合所有入边消息m）
+            n = g.dstdata["n"]                        # 把目标节点的新表示，拿出来，准备做归一化。对应文中n_u  [B,h]
 
             g.update_all(fn.copy_e("w", "m"), fn.sum("m", "ws")) # 每个dst节点，聚合所有入边权重,用来归一化n_u （原始w是访问次数，未归一化）
-            ws = g.dstdata["ws"].unsqueeze(1).clamp(min=1)       # 存入dst节点的'ws'字段
+            ws = g.dstdata["ws"].unsqueeze(1).clamp(min=1)       # 融合每条边上的消息m(来自w),存入dst节点的'ws'字段,作为节点特征(ws)
 
             # 加自己的初始embed：z_u= Relu(W * (concat[n_u,h_u]) + b)
             z = self.act(self.W(self.dropout(torch.cat([n / ws, h_dst], 1))))  # [B,h]   拼上自己后，又通过W,映射到h
@@ -195,8 +196,8 @@ class SAGENet(nn.Module):
         '''
         for layer, block in zip(self.convs, blocks):               # 每层layer
             h_dst = h[: block.num_nodes("DST/" + block.ntypes[0])] # 本次block中，目标节点的初始向量 （位于block源节点的前|dst|个位置）
-            h = layer(block, (h, h_dst), block.edata["weights"])   # 得到本次block的目标节点，对应的新的向量表示
-                                                                   # 而本次的目标节点，是下次block的源节点。作为h_src输入，去聚合更上层的节点表示。
+            h = layer(block, (h, h_dst), block.edata["weights"])   # 得到本次block的目标节点，对应的新的向量表示z. 赋给h
+                                                                   # 本次的目标节点，是下次block的源节点。z作为下一个block的src，去聚合更上层的节点表示。
         return h     # 最原始的输入节点，聚合n层邻居后的表示:(B,h）
 
 

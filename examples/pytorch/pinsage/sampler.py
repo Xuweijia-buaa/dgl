@@ -291,6 +291,7 @@ class PinSAGECollator(object):
         pos_graph, neg_graph, blocks = self.sampler.sample_from_item_pairs(
             heads, tails, neg_tails
         )
+        # 从原始大图中(cpu上)，复制block中每个节点的特征
         assign_features_to_blocks(blocks, self.g, self.textset, self.ntype)
 
         return pos_graph, neg_graph, blocks

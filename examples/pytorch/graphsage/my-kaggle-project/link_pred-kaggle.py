@@ -93,14 +93,21 @@ def train(args, device, g, reverse_eids,model):
         g,
         seed_edges,                                               # 每次迭代g中的B条边，作为fact，构建子图，和对应的邻居子图
         sampler,                                                  # 为输入的B条边，采样对应的负边。并为正负边涉及到的原始节点，采样对应的n阶邻居。
-        device=device, batch_size=512, shuffle=True,
-        drop_last=False, num_workers=0, use_uva=use_uva)
+        device=device, # 采样后的子图所在的device.如果使用uva,不变，还在cpu上。
+        batch_size=512, shuffle=True,
+        drop_last=False, num_workers=0,
+        use_uva=use_uva)                                          # pin the graph and feature tensors into pinned memory.
+                                                                  # 采样得到的子图，放到主机pin mem上。不往gpu上复制了。
+                                                                  # 省去cpu->gpu的复制，但访存时带宽低。和model计算时，可能受限于对子图的访存速度。
+
+                                                                  # 如果图在cpu, device在gpu, 且没用uva的话，  会设置use_alternate_streams是true
+                                                                  # 用另一个流，传输子图到gpu中。
     opt = torch.optim.Adam(model.parameters(), lr=0.0005)
 
     # 缓存训练出来的结果
     if args.usetrainh:
         buffer_device = torch.device('cpu')
-        pin_memory = (buffer_device != device)
+        pin_memory = (buffer_device != device)                    # mixed情况，device是cuda. pin_memory是true
         y = torch.empty(g.num_nodes(), 64, device=buffer_device, pin_memory=pin_memory)  # 用来缓存本epoch,g上所有节点的表示： （N,h）
         y[:] = g.ndata['w2v']
     else:
@@ -124,7 +131,7 @@ def train(args, device, g, reverse_eids,model):
             # 缓存训练完实时的表示
             if args.usetrainh:
                 batch_nodes_id=blocks[-1].dstdata[dgl.NID].long().to(buffer_device)  # seeds节点id
-                y[batch_nodes_id,:]=h.to(buffer_device)
+                y[batch_nodes_id,:]=h.to(buffer_device)  # 本批b个节点的最终embed. 本来在cuda上，复制到cpu的pin_mem
 
             #if (it+1) == 1000: break
         logging.info("Epoch {:05d} | Loss {:.4f}".format(epoch, total_loss / (it+1)))
@@ -163,7 +170,7 @@ if __name__ == '__main__':
         dataset = pickle.load(f)
     g_path = os.path.join(args.data_path, "g.bin")               # 原始train子图
     g_list, _ = dgl.load_graphs(g_path)
-    g = g_list[0].int().to('cuda' if args.mode == 'puregpu' else 'cpu')        # 图太大，可以放CPU。采样的子图放GPU
+    g = g_list[0].int().to('cuda' if args.mode == 'puregpu' else 'cpu')        # 图太大，可以放CPU。采样的子图放GPU   mixed:大图也放cpu
 
     # 把g变成无向图。每个edge,对应正反2条边.
     g.ndata["id"] = torch.arange(g.num_nodes())                                # 每个id一个向量（之后）  还有一个特征w2v. 和id一一对应

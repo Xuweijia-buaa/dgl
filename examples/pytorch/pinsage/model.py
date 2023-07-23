@@ -38,6 +38,7 @@ class PinSAGEModel(nn.Module):
         self.scorer = layers.ItemToItemScorer(full_graph, ntype)  # 根据最终向量表示，计算head->tail 节点相似度。
 
     def forward(self, pos_graph, neg_graph, blocks):
+        '''原始大图在cpu上，每个batch采样得到的子图pos_graph, neg_graph, blocks，放在gpu上(通过.device())'''
         h_item = self.get_repr(blocks)                 # 是blocks中最原始的3种输入节点，经过net后最终的表示 （B,h）
                                                        # 最后一层邻居特征 -> 映射得到初始embed -> 多层conv -> 目标节点的最终表示
         pos_score = self.scorer(pos_graph, h_item)     # B个正样本对的相似度 （根据向量内积得到,还加了一个额外bias，考虑去掉）
@@ -119,8 +120,8 @@ def train(dataset, args):
         neighbor_sampler, g, item_ntype, textset
     )
     dataloader = DataLoader(
-        batch_sampler,                         # 迭代器。训练时，每次从图中，随机采样B个item,和该item的B个正负样本
-        collate_fn=collator.collate_train,
+        batch_sampler,                         # 迭代器。训练时，每次从图中，随机采样B个item,和该item的B个正负样本。采样到cpu上。
+        collate_fn=collator.collate_train,     # 训练前，每个batch采样出的B个heads, tails, neg_tails。一起作为源节点，采样各自的邻居。在cpu上
         num_workers=args.num_workers,
     )
     dataloader_test = DataLoader(
@@ -142,10 +143,10 @@ def train(dataset, args):
     for epoch_id in range(args.num_epochs):
         model.train()
         for batch_id in tqdm.trange(args.batches_per_epoch):
-            pos_graph, neg_graph, blocks = next(dataloader_it)
+            pos_graph, neg_graph, blocks = next(dataloader_it) # 已经从大图中复制了特征
             # blocks 和 子图， copy to GPU
             for i in range(len(blocks)):
-                blocks[i] = blocks[i].to(device)
+                blocks[i] = blocks[i].to(device)               # 采样好后，才复制子图到gpu中。可以考虑用一个非默认流，异步复制每批次的子图到gpu
             pos_graph = pos_graph.to(device)
             neg_graph = neg_graph.to(device)
 
