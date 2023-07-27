@@ -237,7 +237,7 @@ setup(
     ],
     url="https://github.com/dmlc/dgl",
     distclass=BinaryDistribution,
-    ext_modules=config_cython(),
+    ext_modules=config_cython(),   # 要编译的代码
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python :: 3",

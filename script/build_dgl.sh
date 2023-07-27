@@ -69,11 +69,11 @@ if [[ -z ${cuda} ]]; then
 else
   mkdir -p build
   cd build
-  cmake -DUSE_CUDA=${cuda} ${extra_args} ..
+  cmake -DUSE_CUDA=${cuda} ${extra_args} ..  # 使用cmake,build
 fi
 
 if [[ ${PWD} == "${DGL_HOME}/build" ]]; then
-  make -j
+  make -j                                    # build下make
 else
   echo "ERROR: unexpected working directory."
   echo " Current: ${PWD}"

@@ -9,7 +9,7 @@ cat << EOF
 usage: bash $0 OPTIONS
 examples:
   bash $0 -c
-  bash $0 -g 11.7
+  bash $0 -g 11.7                        # gpu
   bash $0 -g 11.7 -p 3.8
   bash $0 -g 11.7 -p 3.8 -t 1.13.0
   bash $0 -c -n dgl-dev-cpu

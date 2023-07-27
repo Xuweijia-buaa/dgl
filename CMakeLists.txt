@@ -1,3 +1,13 @@
+# 首先创建一个conda环境：        bash script/create_dev_conda_env.sh -g 11.7
+# 然后执行cmake,编译libgdl,dgl: bash script/build_dgl.sh -g,   对应 cmake -DUSE_CUDA=on ${extra_args} .., 再执行make
+#                             bash script/build_dgl.sh -g -e '-DBUILD_TORCH=ON -DCMAKE_BUILD_TYPE=DEBUG'  相当于加了加额外编译参数：
+#                                                            对应 cmake -DUSE_CUDA=on -DCMAKE_BUILD_TYPE=DEBUG ..,再执行make
+#                             我们执行：bash script/build_dgl.sh -g -e '-DCMAKE_BUILD_TYPE=DEBUG'
+# 创建了c++代码对应的共享库libdgl.so,放在build文件夹下。 含src下的cu/cc源码，含-G,-g
+
+# 该共享库，绑定python
+# 
+
 cmake_minimum_required(VERSION 3.5)
 ########################################
 # Borrowed and adapted from TVM project
@@ -37,6 +47,11 @@ dgl_option(BUILD_GRAPHBOLT "Build Graphbolt library" OFF)
 dgl_option(TORCH_PYTHON_INTERPS "Python interpreter used to build tensoradapter and DGL sparse library" python3)
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
+# 在CMake中，使用-DCMAKE_BUILD_TYPE=DEBUG选项可以设置构建类型为调试模式。这将影响以下变量：
+#   CMAKE_BUILD_TYPE：设置为DEBUG，指示构建类型为调试模式。
+#   CMAKE_C_FLAGS_DEBUG：用于C语言的调试标志。可以通过set(CMAKE_C_FLAGS_DEBUG ...)来设置。
+#   CMAKE_CXX_FLAGS_DEBUG：用于C++语言的调试标志。可以通过set(CMAKE_CXX_FLAGS_DEBUG ...)来设置。
+#   CMAKE_EXE_LINKER_FLAGS_DEBUG：用于链接可执行文件的调试标志。可以通过set(CMAKE_EXE_LINKER_FLAGS_DEBUG ...)来设置。
 if (NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb")
 endif(NOT MSVC)
@@ -164,11 +179,11 @@ list(APPEND DGL_SRC ${DGL_RPC_SRC})
 
 # Configure cuda
 if(USE_CUDA)
-  dgl_config_cuda(DGL_CUDA_SRC)
+  dgl_config_cuda(DGL_CUDA_SRC)               # cmake/modules/CUDA.cmake中定义的各个cu文件。在每个文件夹的cuda文件夹下
   list(APPEND DGL_SRC ${DGL_CUDA_SRC})
   cuda_add_library(dgl SHARED ${DGL_SRC})
 else(USE_CUDA)
-  add_library(dgl SHARED ${DGL_SRC})
+  add_library(dgl SHARED ${DGL_SRC})         # 创建c++代码对应的共享库。 libdgl.so,放在build文件夹下。
 endif(USE_CUDA)
 
 set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
