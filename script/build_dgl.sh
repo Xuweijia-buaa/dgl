@@ -20,6 +20,7 @@ OPTIONS:
   -e           Extra arguments of cmake.
   -g           Restart CUDA build.
   -r           Remove all intermediate output.
+# 我们执行：bash script/build_dgl.sh -g -e '-DCMAKE_BUILD_TYPE=DEBUG'
 EOF
 }
 

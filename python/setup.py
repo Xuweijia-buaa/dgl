@@ -43,7 +43,7 @@ def get_lib_path():
     lib_path = libinfo["find_lib_path"]()
     libs = [lib_path[0]]
 
-    return libs, version
+    return libs, version  # 之前用cmake编译好的共享文件："libdgl.so"
 
 
 def get_lib_pattern(lib_name):
@@ -58,7 +58,7 @@ def get_lib_pattern(lib_name):
     return lib_pattern
 
 
-LIBS, VERSION = get_lib_path()
+LIBS, VERSION = get_lib_path() # "# 之前用cmake编译好的共享文件："libdgl.so"
 BACKENDS = ["pytorch"]
 
 
@@ -119,7 +119,7 @@ def config_cython():
         path = "dgl/_ffi/_cython"
         library_dirs = ["dgl", "../build/Release", "../build"]
         libraries = ["dgl"]
-        for fn in os.listdir(path):
+        for fn in os.listdir(path):         # Cython的拓展包。导入了外部c++的一些函数。生成.so后，可以被python调用
             if not fn.endswith(".pyx"):
                 continue
             ret.append(
@@ -134,7 +134,8 @@ def config_cython():
                     library_dirs=library_dirs,
                     libraries=libraries,
                     # Crashes without this flag with GCC 5.3.1
-                    extra_compile_args=["-std=c++14"],
+                    # extra_compile_args=["-std=c++14"],
+                    extra_compile_args=["-std=c++14","-g"],  # 用于调试
                     language="c++",
                 )
             )
@@ -148,7 +149,7 @@ def config_cython():
         return []
 
 
-def copy_lib(lib_name, backend=""):
+def copy_lib(lib_name, backend=""):# 把库文件，也写入python的dgl文件夹下
     for lib_path in glob.glob(
         os.path.join(dir_, lib_name, backend, get_lib_pattern(lib_name))
     ):
@@ -180,12 +181,12 @@ setup_kwargs = {}
 if wheel_include_libs:
     with open("MANIFEST.in", "w") as fo:
         for path in LIBS:
-            shutil.copy(path, os.path.join(CURRENT_DIR, "dgl"))
+            shutil.copy(path, os.path.join(CURRENT_DIR, "dgl"))  # 如果要打包wheel,把"libdgl.so"，先复制到python的build文件夹下
             dir_, libname = os.path.split(path)
             fo.write("include dgl/%s\n" % libname)
 
         for backend in BACKENDS:
-            copy_lib("tensoradapter", backend)
+            copy_lib("tensoradapter", backend)                  # 把库文件，也写入python的dgl文件夹下
             if backend == "pytorch":
                 copy_lib("dgl_sparse")
                 copy_lib("graphbolt")

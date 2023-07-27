@@ -6,7 +6,15 @@
 # 创建了c++代码对应的共享库libdgl.so,放在build文件夹下。 含src下的cu/cc源码，含-G,-g
 
 # 该共享库，绑定python
-# 
+# cd python
+# python文件夹下，执行：python setup.py build_ext --inplace  （pyx的编译参数设置-g）
+# 生成的共享文件放在build文件夹下：dgl/python/build/lib.linux-x86_64-cpython-38/dgl/_ffi/_cy3/core.cpython-38-x86_64-linux-gnu.so。是Cython拓展包
+
+# 所有包，都安装到本conda环境下（含Cython拓展包，）：
+# python setup.py install
+# 首先打包好的dgl-1.2-py3.8-linux-x86_64.egg    （含libdgl.so,首层目录下。 cython拓展.so,放在dgl/_ffi/_cy3/下）（其他都是python文件，导入这2个包用）
+# 再写入 /media/xuweijia/新加卷/.conda/envs/dgl/lib/python3.8/site-packages/
+
 
 cmake_minimum_required(VERSION 3.5)
 ########################################
